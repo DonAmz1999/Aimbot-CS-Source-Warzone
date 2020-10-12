@@ -45,28 +45,9 @@ struct vec3 {
 
 vec3 Clamp(vec3 angle)
 {
-    if (angle.x > 89.0f && angle.x <= 180.0f)
-        angle.x = 89.0f;
-    if (angle.x > 180.0f)
-        angle.x = angle.x - 360.0f;
-    if (angle.x < -89.0f)
-        angle.x = -89.0f;
-    if (angle.y > 180.0f)
-        angle.y = angle.y - 360.0f;
-    if (angle.y < -180.0f)
-        angle.y = angle.y + 360.0f;
-    return angle;
-}
-vec3 Norm(vec3 angle)
-{
-    if (angle.x > 180)
-        angle.x -= 360.0f;
-    if (angle.x < 180)
-        angle.x += 360.0f;
-    if (angle.y > 180)
-        angle.y -= 360.0f;
-    if (angle.y < 180)
-        angle.y += 360.0f;
+    //return angle;
+    if (angle.x < -89.f) angle.x = -89.f;
+    else if (angle.x > 89.f) angle.x = 89.f;
     return angle;
 }
 
@@ -141,12 +122,11 @@ void setAimAngles(DWORD player) {
     angle.x = valorCameraXAtual;
     angle.y = valorCameraYAtual;
 
-    diff = Clamp(Norm(diff));
+   // diff = Clamp(diff);
 
-    angle.x += diff.x / ((rand() % 5) + 10); // suavidade e aleatoriedade, pra envitar detecção do ac   
-    angle.y += diff.y / ((rand() % 5) + 10); // same
-    angle = Norm(angle);
-    angle = Clamp(angle);
+    angle.x += diff.x / ((rand() % 5) + 5); // suavidade e aleatoriedade, pra envitar detecção do ac   
+    angle.y += diff.y / ((rand() % 5) + 5); // same
+   // angle = Clamp(angle);
 
     FilledPlayers[player].AimbotAngles[0] = angle.x;
     FilledPlayers[player].AimbotAngles[1] = angle.y;
