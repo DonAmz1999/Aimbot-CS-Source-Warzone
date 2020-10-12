@@ -12,12 +12,11 @@ struct Address_offsets
 {
     DWORD _engine_module_address = 0; // cam
     DWORD _server_module_address = 0; // player
-    DWORD CamY = 0x47F1B4;
-    DWORD CamX = 0x47F1B8;
-    DWORD NumOfPlayers = 0x589868;
-    DWORD NumOfPlayersAlive = 0x4EFFC0;
+    DWORD CamY = 0x4791B4;
+    DWORD CamX = 0x4791B8;
+    DWORD NumOfPlayers = 0x3C0658; // engine.dll+3C0658
     DWORD IsCocked = 0xb38;
-    DWORD local_base = 0x4F3FCC; // "server.dll"+004F3FCC; este é o 0, eu
+    DWORD local_base = 0x4F3FEC; // "server.dll"+4F3FEC; este é o 0, eu
     DWORD Life = 0x00E4;
     DWORD CoorY = 0x0288;
     DWORD CoorX = 0x0284;
@@ -185,7 +184,7 @@ int main()
    
     while (true) {
         Sleep(1);
-        ReadProcessMemory(pHandle, (LPCVOID)(Address._server_module_address + Address.NumOfPlayers), &numero_players_total, sizeof(DWORD), 0);
+        ReadProcessMemory(pHandle, (LPCVOID)(Address._engine_module_address + Address.NumOfPlayers), &numero_players_total, sizeof(DWORD), 0);
         int player_mira_mais_proxima = 0;
         float menor_distancia_mira = 999999;
 
