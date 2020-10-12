@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <math.h>
+#include <random>
 using namespace std;
 constexpr auto PI = 3.14159265359;
 DWORD PID = 0;
@@ -38,7 +39,36 @@ struct _FilledPlayers
     BOOL isCocked;
 }FilledPlayers[32];
 
+struct vec3 {
+    float x, y, z;
+};
 
+vec3 Clamp(vec3 angle)
+{
+    if (angle.x > 89.0f && angle.x <= 180.0f)
+        angle.x = 89.0f;
+    if (angle.x > 180.0f)
+        angle.x = angle.x - 360.0f;
+    if (angle.x < -89.0f)
+        angle.x = -89.0f;
+    if (angle.y > 180.0f)
+        angle.y = angle.y - 360.0f;
+    if (angle.y < -180.0f)
+        angle.y = angle.y + 360.0f;
+    return angle;
+}
+vec3 Norm(vec3 angle)
+{
+    if (angle.x > 180)
+        angle.x -= 360.0f;
+    if (angle.x < 180)
+        angle.x += 360.0f;
+    if (angle.y > 180)
+        angle.y -= 360.0f;
+    if (angle.y < 180)
+        angle.y += 360.0f;
+    return angle;
+}
 
 DWORD getPidByProcessName(char* processname) { // Retorna o PID do primeiro processo que encontramos com este nome
     PROCESSENTRY32 pe32; // cria um obj
@@ -58,7 +88,7 @@ DWORD getPidByProcessName(char* processname) { // Retorna o PID do primeiro proc
     return 0;
 }
 
-DWORD getModuleAddressByName(DWORD _PID, char* module_name) { // Retorna o ModuleAddress do primeiro modulo que encontramos com este nome
+uintptr_t getModuleAddressByName(DWORD _PID, char* module_name) { // Retorna o ModuleAddress do primeiro modulo que encontramos com este nome
     //cout << "Module: " << module_name << endl;
     MODULEENTRY32 me32;
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, _PID);
@@ -67,7 +97,7 @@ DWORD getModuleAddressByName(DWORD _PID, char* module_name) { // Retorna o Modul
     while (isEnd) {
         if (!strcmp(me32.szModule, module_name)) {
             CloseHandle(snapshot);
-            return (DWORD)me32.modBaseAddr;
+            return (uintptr_t)me32.modBaseAddr;
         }
         isEnd = Module32Next(snapshot, &me32);
     }
@@ -94,33 +124,35 @@ void setAimAngles(DWORD player) {
         qr = 4; ac = 1; co = dz * -1; ca = dx;
     }
 
-    float deltaX = (atan2(co, ca) * (180 / (float)PI) + ac * 90) - 180; // -180 do jogo msm
-    float deltaY = (atan2(sqrt(pow(dx, 2) + pow(dz, 2)), dy) * (180 / (float)PI) - 90) * -1; // -90 do game msm
+    float aim_angle_x = (atan2(co, ca) * (180 / (float)PI) + ac * 90) - 180; // -180 do jogo msm
+    float aim_angle_y = (atan2(sqrt(pow(dx, 2) + pow(dz, 2)), dy) * (180 / (float)PI) - 90) * -1; // -90 do game msm
     float valorCameraXAtual = 0, valorCameraYAtual = 0;
     ReadProcessMemory(pHandle, (LPCVOID)(Address._engine_module_address + Address.CamX), &valorCameraXAtual, sizeof(DWORD), 0);
     ReadProcessMemory(pHandle, (LPCVOID)(Address._engine_module_address + Address.CamY), &valorCameraYAtual, sizeof(DWORD), 0);
 
 
-    float dist_cam = sqrt(pow(valorCameraXAtual - deltaX, 2) + pow(valorCameraYAtual - deltaY, 2));
-    
-    //if (valorCameraXAtual <= 0 ) {
-    //cout << deltaX << endl;
-    
-    /*if (deltaY > 89.0f) deltaY = 89.0f;
-    else if (deltaY < -89.0f) deltaY = -89.0f;
-    */
-    if (deltaX >= 179) // se tiver no max
-        deltaX -= 360; // desce
-    if (deltaX <= -179)
-        deltaX += 360;
-    cout << deltaX << endl;
+    float dist_cam = sqrt(pow(valorCameraXAtual - aim_angle_x, 2) + pow(valorCameraYAtual - aim_angle_y, 2));
 
-    deltaX = (valorCameraXAtual + (deltaX - valorCameraXAtual) / 500); // suavidade       
-    //deltaY = (valorCameraYAtual + (deltaY - valorCameraYAtual) / 100); // suavidade
-    FilledPlayers[player].AimbotAngles[0] = deltaX;
-    FilledPlayers[player].AimbotAngles[1] = deltaY;
+
+    vec3 diff, angle;
+    diff.x = aim_angle_x - valorCameraXAtual;
+    diff.y = aim_angle_y - valorCameraYAtual;
+    diff.z = 0;
+    angle.x = valorCameraXAtual;
+    angle.y = valorCameraYAtual;
+
+    diff = Clamp(Norm(diff));
+
+    angle.x += diff.x / ((rand() % 5) + 10); // suavidade e aleatoriedade, pra envitar detecção do ac   
+    angle.y += diff.y / ((rand() % 5) + 10); // same
+    angle = Norm(angle);
+    angle = Clamp(angle);
+
+    FilledPlayers[player].AimbotAngles[0] = angle.x;
+    FilledPlayers[player].AimbotAngles[1] = angle.y;
     FilledPlayers[player].D2DCam = dist_cam;
-
+  //  cout << dist_cam_to_aim_x << endl;
+    
 
 }
 
@@ -172,6 +204,7 @@ int main()
     int numero_players_total = 0;
    
     while (true) {
+        Sleep(1);
         ReadProcessMemory(pHandle, (LPCVOID)(Address._server_module_address + Address.NumOfPlayers), &numero_players_total, sizeof(DWORD), 0);
         int player_mira_mais_proxima = 0;
         float menor_distancia_mira = 999999;
@@ -182,7 +215,7 @@ int main()
                 player_mira_mais_proxima = player;
                 menor_distancia_mira = FilledPlayers[player].D2DCam;
 
-            }
+            }   
 
         }
        // system("cls");
